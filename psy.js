@@ -1,103 +1,227 @@
 const canvas = document.getElementById("psy-bg");
 const ctx = canvas.getContext("2d");
 
-function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
-resizeCanvas();
+let w, h;
 
-let ufos = [];
-const COUNT = 25; // leve e fluido
+let aliens = Array.from({length: 6}, () => ({
+  x: Math.random() * w,
+  y: Math.random() * h,
+  size: 12 + Math.random() * 8,
+  speedY: 0.2 + Math.random() * 0.3,
+  float: Math.random() * 100
+}));
 
-class UFO {
-    constructor() {
-        this.reset();
-    }
+function drawAlien(a) {
+  ctx.save();
+  ctx.translate(a.x, a.y);
 
-    reset() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
+  let floatY = Math.sin(a.float) * 5;
+  ctx.translate(0, floatY);
 
-        this.size = Math.random() * 20 + 10;
+  ctx.shadowColor = "#00ffcc";
+  ctx.shadowBlur = 10;
 
-        this.speedX = (Math.random() - 0.5) * 0.4;
-        this.speedY = (Math.random() - 0.5) * 0.4;
+  // cabeça
+  ctx.beginPath();
+  ctx.ellipse(0, 0, a.size/1.5, a.size, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#00ffcc";
+  ctx.fill();
 
-        this.angle = Math.random() * Math.PI * 2;
-    }
+  // olhos
+  ctx.beginPath();
+  ctx.ellipse(-a.size/4, -2, 3, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(a.size/4, -2, 3, 5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#000";
+  ctx.fill();
 
-    update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        this.angle += 0.02;
-
-        if (this.x < -50) this.x = canvas.width + 50;
-        if (this.x > canvas.width + 50) this.x = -50;
-        if (this.y < -50) this.y = canvas.height + 50;
-        if (this.y > canvas.height + 50) this.y = -50;
-    }
-
-    draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(Math.sin(this.angle) * 0.2);
-
-        // glow leve
-        ctx.shadowColor = "#00ffcc";
-        ctx.shadowBlur = 15;
-
-        // BASE
-        ctx.beginPath();
-        ctx.ellipse(0, 0, this.size, this.size / 3, 0, 0, Math.PI * 2);
-        ctx.fillStyle = "#00ffcc";
-        ctx.globalAlpha = 0.6;
-        ctx.fill();
-
-        ctx.globalAlpha = 1;
-
-        // CABINE
-        ctx.beginPath();
-        ctx.ellipse(0, -this.size / 6, this.size / 3, this.size / 4, 0, 0, Math.PI * 2);
-        ctx.fillStyle = "#66fff0";
-        ctx.fill();
-
-        // LUZES FIXAS (não random a cada frame)
-        for (let i = -2; i <= 2; i++) {
-            ctx.beginPath();
-            ctx.arc(i * (this.size / 4), this.size / 6, 2, 0, Math.PI * 2);
-            ctx.fillStyle = "#ff00cc";
-            ctx.fill();
-        }
-
-        ctx.restore();
-    }
+  ctx.restore();
 }
 
-function init() {
-    ufos = [];
-    for (let i = 0; i < COUNT; i++) {
-        ufos.push(new UFO());
-    }
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
 }
+resize();
 
-function animate() {
-    // fundo com leve transparência (efeito rastro + visível)
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+/* ===== PARALLAX (MOUSE) ===== */
+let mouse = { x: w/2, y: h/2 };
 
-    ufos.forEach(u => {
-        u.update();
-        u.draw();
-    });
-
-    requestAnimationFrame(animate);
-}
-
-window.addEventListener("resize", () => {
-    resizeCanvas();
-    init();
+window.addEventListener("mousemove", e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
 });
 
-init();
+/* ===== ESTRELAS ===== */
+let stars = Array.from({length: 120}, () => ({
+  x: Math.random() * w,
+  y: Math.random() * h,
+  size: Math.random() * 2,
+  depth: Math.random()
+}));
+
+/* ===== NEBULOSA ===== */
+function drawNebula() {
+  let grad = ctx.createRadialGradient(
+    mouse.x, mouse.y, 100,
+    mouse.x, mouse.y, 600
+  );
+
+  grad.addColorStop(0, "rgba(0,255,200,0.15)");
+  grad.addColorStop(0.3, "rgba(0,150,255,0.08)");
+  grad.addColorStop(1, "transparent");
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+}
+
+/* ===== PLANETA ===== */
+let planetAngle = 0;
+
+function drawPlanet() {
+  let x = w * 0.8;
+  let y = h * 0.2;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(planetAngle);
+
+  // gradiente profundo
+  let grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 90);
+  grad.addColorStop(0, "#00ffcc");
+  grad.addColorStop(0.4, "#009977");
+  grad.addColorStop(1, "#001a14");
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, 80, 0, Math.PI * 2);
+  ctx.fill();
+
+  // manchas (efeito planeta real)
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.arc(
+      Math.sin(i) * 30,
+      Math.cos(i) * 20,
+      15,
+      0,
+      Math.PI * 2
+    );
+    ctx.fillStyle = "rgba(0,255,200,0.05)";
+    ctx.fill();
+  }
+
+  // anel mais elegante
+  ctx.strokeStyle = "rgba(0,255,200,0.25)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 130, 45, 0.3, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
+
+  planetAngle += 0.0015;
+}
+
+/* ===== UFO NORMAL ===== */
+let ufos = Array.from({length: 6}, () => ({
+  x: Math.random() * w,
+  y: Math.random() * h,
+  size: 15 + Math.random()*10,
+  speedX: (Math.random() - 0.5) * 0.3,
+  speedY: (Math.random() - 0.5) * 0.3
+}));
+
+function drawUFO(u) {
+  ctx.save();
+  ctx.translate(u.x, u.y);
+
+  ctx.shadowColor = "#00ffcc";
+  ctx.shadowBlur = 15;
+
+  ctx.beginPath();
+  ctx.ellipse(0, 0, u.size, u.size/3, 0, 0, Math.PI*2);
+  ctx.fillStyle = "rgba(0,255,200,0.6)";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.ellipse(0, -u.size/5, u.size/3, u.size/4, 0, 0, Math.PI*2);
+  ctx.fillStyle = "#66fff0";
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/* ===== FLY-BY (NAVE RÁPIDA) ===== */
+let fly = null;
+
+function spawnFly() {
+  fly = {
+    x: -200,
+    y: Math.random() * h,
+    speed: 15
+  };
+}
+
+function drawFly() {
+  if (!fly) return;
+
+  ctx.beginPath();
+  ctx.moveTo(fly.x, fly.y);
+  ctx.lineTo(fly.x - 120, fly.y + 20);
+
+  ctx.strokeStyle = "rgba(0,255,200,0.5)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  fly.x += fly.speed;
+
+  if (fly.x > w + 200) fly = null;
+}
+
+/* ===== LOOP ===== */
+function animate() {
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(0, 0, w, h);
+
+  /* estrelas com parallax */
+  stars.forEach(s => {
+    let dx = (mouse.x - w/2) * s.depth * 0.02;
+    let dy = (mouse.y - h/2) * s.depth * 0.02;
+
+    ctx.beginPath();
+    ctx.arc(s.x + dx, s.y + dy, s.size, 0, Math.PI*2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+  });
+
+  aliens.forEach(a => {
+  a.y += a.speedY;
+  a.float += 0.05;
+
+  if (a.y > h + 50) {
+    a.y = -50;
+    a.x = Math.random() * w;
+  }
+
+  drawAlien(a);
+});
+
+  drawNebula();
+  drawPlanet();
+
+  ufos.forEach(u => {
+    u.x += u.speedX;
+    u.y += u.speedY;
+    drawUFO(u);
+  });
+
+  drawFly();
+
+  if (!fly && Math.random() < 0.005) spawnFly();
+
+  requestAnimationFrame(animate);
+}
+
+window.addEventListener("resize", resize);
+
 animate();
